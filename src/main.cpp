@@ -7,6 +7,8 @@
 #include <cstdint>
 #include <algorithm>
 #include <cstdlib>
+#include <thread>
+#include <future>
 
 #include "../include/Observer.hpp"
 #include "../include/GameText.hpp"
@@ -86,11 +88,11 @@ int main()
 
     sf::Clock clock;
     Publisher pub;
-    std::vector<GameText> game_text_array(10);
-    for(int i=0; i < 6; i++){
-        game_text_array[i]= GameText{PokeApi::getPokemon(PokeApi::generatePokemonID()).first, font, DEFAULT_CHARACTER_SIZE,i+1};
-        game_text_array[i].setPosition({50,generateRow(game_text_array[i].getRow(),window)});
-        pub.subscribe(game_text_array[i].getString(),&game_text_array[i]);
+    std::vector<std::shared_ptr<GameText>> game_text_array(100);
+    for(int i=0; i < 0; i++){
+        game_text_array[i]= std::make_shared<GameText>(GameText{PokeApi::getPokemon(PokeApi::generatePokemonID()).first, font, DEFAULT_CHARACTER_SIZE,i+1});
+        game_text_array[i]->setPosition({50,generateRow(game_text_array[i]->getRow(),window)});
+        pub.subscribe(game_text_array[i]->getString(),game_text_array[i]);
     }
 
     /* GameText game_text1{"bird", font, DEFAULT_CHARACTER_SIZE,1};
@@ -116,6 +118,7 @@ int main()
     // game_test.setPosition({50,350});
     // pub.subscribe(game_test.getString(),&game_test);
 
+    auto future = std::async(PokeApi::getPokemon,PokeApi::generatePokemonID());
 
     while (window.isOpen())
     {
@@ -131,7 +134,8 @@ int main()
                     break;
                 case sf::Event::Resized:
                     for(auto pair : pub.getSubscribers()){
-                        GameText* t {static_cast<GameText*>(pair.second)};
+                        std::shared_ptr<GameText> t {std::dynamic_pointer_cast<GameText>(pair.second)};
+                        if(!t) throw std::bad_cast();
                         t->setPosition(t->getPosition().x,generateRow(t->getRow(),window));
                     }
                     break;
@@ -161,9 +165,22 @@ int main()
         avatarSprite.rotate(rotation);
         window.draw(avatarSprite); */
 
+        if(elapsed.asSeconds() >= 2.f){
+            if (future.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+                auto res = future.get();
+                std::shared_ptr<GameText> some = std::make_shared<GameText>(GameText{res.first, font, DEFAULT_CHARACTER_SIZE,2});
+                game_text_array.push_back(some);
+                some->setPosition({50,generateRow(some->getRow(),window)});
+                pub.subscribe(some->getString(),some);
+                future = std::async(PokeApi::getPokemon,PokeApi::generatePokemonID());
+
+            }
+            clock.restart();
+        }
 
         for(auto pair : pub.getSubscribers()){
-            GameText* t {static_cast<GameText*>(pair.second)};
+            std::shared_ptr<GameText> t {std::dynamic_pointer_cast<GameText>(pair.second)};
+            if(!t) throw std::bad_cast();
 
             if(t->isCompleted()){
                 pub.unsubscribe(t->getString().toAnsiString());

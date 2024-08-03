@@ -32,16 +32,63 @@ void loadRecourse(sf::Font &t, std::string file) {
 
 float generateRow(int nrRow, const sf::Window &window){
     auto [width, height] = window.getSize();
-    float offset = height / MAX_NR_ROWS+1;
+    float offset = height / (MAX_NR_ROWS+1);
     std::cout << "height: " << height << " - offset: "<< offset << std::endl;
     return (offset*nrRow)-DEFAULT_CHARACTER_SIZE;
+}
+
+void prepareSubscriberForPublisher(Publisher &pub, std::string pokemonName, sf::Font &font, const sf::Window &window, int row){
+    // create GameText / set its position and subscribe it to the Observer
+    try{
+        std::shared_ptr<GameText> gt {std::make_shared<GameText>(GameText{pokemonName, font, DEFAULT_CHARACTER_SIZE,row})};
+        gt->setPosition({50,generateRow(gt->getRow(),window)});
+        pub.subscribe(gt->getString(),gt);
+    }catch(std::exception &e){
+        std::cerr << "Failed to create GameText: " << e.what();
+    }
+}
+
+int checkForEmptyRow(Publisher &pub){
+    // all rows empty
+    if(pub.getSubscribers().size() == 0){
+        return 1;
+    }
+    // searching for empty row
+    std::vector<short> rows {1,2,3,4,5};
+    std::vector<short> filtered_rows(10);
+    for(auto &sub : pub.getSubscribers()){
+        std::shared_ptr<GameText> gt = std::dynamic_pointer_cast<GameText>(sub.second);
+        filtered_rows.push_back(gt->getRow());
+    }
+    bool found=false;
+    for(short &r : rows){
+        found = false;
+        for(short &fr: filtered_rows){
+            if(fr==r){
+                found = true;
+                break;
+            }
+        }
+        if(!found){
+            return r;
+        }
+    }
+
+    // searching for a row with enough space
+    for(auto &sub : pub.getSubscribers()){
+        std::shared_ptr<GameText> gt = std::dynamic_pointer_cast<GameText>(sub.second);
+        sf::FloatRect rect = gt->getGlobalBounds();
+        if(rect.left > rect.width*2){
+            return gt->getRow();
+        }
+    }
+    return 0;
 }
 
 int main()
 {
     // fetching pokemon names
     //std::string test{PokeApi::getPokemon(PokeApi::generatePokemonID()).first};
-    std::string test{"asdfdsa"};
 
     //background
     sf::Texture oldPaper;
@@ -60,18 +107,13 @@ int main()
     sf::Vector2f originalAvatarScale{avatarSprite.getScale()};
     avatarSprite.setOrigin(avatarTexture.getSize().x/2,avatarTexture.getSize().y/2);
 
-    // text
+    // font
     sf::Font font{};
     loadRecourse(font,"./fonts/roboto.tff");
 
-    sf::Glyph a = font.getGlyph(68,30,true);
-    sf::Text text{};
-    text.setFont(font);
-    text.setString("hello world");
+    // text
+    sf::Text text{"hello world", font, DEFAULT_CHARACTER_SIZE};
     text.setColor(sf::Color::Red);
-    text.setCharacterSize(55);
-
-
 
     auto window = sf::RenderWindow{ { 300, 300 }, "Typing Game", sf::Style::Fullscreen | sf::Style::Resize | sf::Style::Close};
 
@@ -88,37 +130,9 @@ int main()
 
     sf::Clock clock;
     Publisher pub;
-    std::vector<std::shared_ptr<GameText>> game_text_array(100);
-    for(int i=0; i < 0; i++){
-        game_text_array[i]= std::make_shared<GameText>(GameText{PokeApi::getPokemon(PokeApi::generatePokemonID()).first, font, DEFAULT_CHARACTER_SIZE,i+1});
-        game_text_array[i]->setPosition({50,generateRow(game_text_array[i]->getRow(),window)});
-        pub.subscribe(game_text_array[i]->getString(),game_text_array[i]);
-    }
 
-    /* GameText game_text1{"bird", font, DEFAULT_CHARACTER_SIZE,1};
-    game_text1.setPosition({50,generateRow(game_text1.getRow(),window)});
-    GameText game_text2{"house", font, DEFAULT_CHARACTER_SIZE,2};
-    game_text2.setPosition({50,generateRow(game_text2.getRow(),window)});
-    GameText game_text3{"bath", font, DEFAULT_CHARACTER_SIZE,3};
-    game_text3.setPosition({50,generateRow(game_text3.getRow(),window)});
-    GameText game_text4{"pineapple", font, DEFAULT_CHARACTER_SIZE,4};
-    game_text4.setPosition({50,generateRow(game_text4.getRow(),window)});
-    GameText game_text5{"pizza", font, DEFAULT_CHARACTER_SIZE,5};
-    game_text5.setPosition({50,generateRow(game_text5.getRow(),window)});
-
-
-    Publisher pub;
-    pub.subscribe(game_text1.getString(),&game_text1);
-    pub.subscribe(game_text2.getString(),&game_text2);
-    pub.subscribe(game_text3.getString(),&game_text3);
-    pub.subscribe(game_text4.getString(),&game_text4);
-    pub.subscribe(game_text5.getString(),&game_text5); */
-
-    // GameText game_test{test, font, 30};
-    // game_test.setPosition({50,350});
-    // pub.subscribe(game_test.getString(),&game_test);
-
-    auto future = std::async(PokeApi::getPokemon,PokeApi::generatePokemonID());
+    std::future_status f_status;
+    std::future<std::pair<std::string,int>> future = std::async(PokeApi::getPokemon,PokeApi::generatePokemonID());
 
     while (window.isOpen())
     {
@@ -165,16 +179,26 @@ int main()
         avatarSprite.rotate(rotation);
         window.draw(avatarSprite); */
 
-        if(elapsed.asSeconds() >= 2.f){
-            if (future.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
-                auto res = future.get();
-                std::shared_ptr<GameText> some = std::make_shared<GameText>(GameText{res.first, font, DEFAULT_CHARACTER_SIZE,2});
-                game_text_array.push_back(some);
-                some->setPosition({50,generateRow(some->getRow(),window)});
-                pub.subscribe(some->getString(),some);
-                future = std::async(PokeApi::getPokemon,PokeApi::generatePokemonID());
+        if(elapsed.asSeconds() >= 2.f && future.valid()){
 
+            switch (f_status = future.wait_for(std::chrono::seconds(0)); f_status)
+            {
+                case std::future_status::deferred:
+                    break;
+                case std::future_status::timeout:
+                    break;
+                case std::future_status::ready:
+                    if(int row = checkForEmptyRow(pub); row){
+                        std::cout << row << " this is the row"<< std::endl;
+                        prepareSubscriberForPublisher(pub, future.get().first, font, window, row);
+                        // fetch another pokemon
+                        future = std::async(PokeApi::getPokemon,PokeApi::generatePokemonID());
+                    }
+                    break;
+                default:
+                    break;
             }
+
             clock.restart();
         }
 
@@ -187,19 +211,22 @@ int main()
             }else{
                 window.draw(*t);
                 t->move({0.5f,0.f});
+
+                // draws outline
+                auto bounds = t->getGlobalBounds();
+                // Create a RectangleShape with the same position and size
+                sf::RectangleShape rectangle(sf::Vector2f(bounds.width, bounds.height));
+                rectangle.setPosition(bounds.left, bounds.top);
+
+                // Set the outline color and thickness
+                rectangle.setFillColor(sf::Color::Transparent);
+                rectangle.setOutlineColor(sf::Color::Red);
+                rectangle.setOutlineThickness(1.f);
+
+                window.draw(rectangle);
+                rectangle.move({0.5f,0.f});
             }
         }
-
-        /* if(elapsed.asSeconds() >= 1.f){
-            try{
-                game_text.advance(test_arr.at(index));
-            }catch(std::out_of_range exception){
-                std::cout << exception.what() << std::endl;
-            }
-            std::cout << "3 second passed" << std::endl;
-            clock.restart();
-            index++;
-        } */
 
 
         window.display();

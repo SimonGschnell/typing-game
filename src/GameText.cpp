@@ -27,6 +27,18 @@ namespace{
 
 }
 
+sf::FloatRect GameText::getLocalBounds() const
+{
+    ensureGeometryUpdate();
+
+    return m_bounds;
+}
+
+sf::FloatRect GameText::getGlobalBounds() const
+{
+    return getTransform().transformRect(getLocalBounds());
+}
+
 sf::String GameText::getString(){
     return m_string;
 }

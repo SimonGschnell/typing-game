@@ -43,6 +43,10 @@ public:
 
     int getRow();
 
+    sf::FloatRect getLocalBounds() const;
+
+    sf::FloatRect getGlobalBounds() const;
+
 };
 
 

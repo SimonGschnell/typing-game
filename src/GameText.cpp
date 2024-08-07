@@ -39,12 +39,25 @@ sf::FloatRect GameText::getGlobalBounds() const
     return getTransform().transformRect(getLocalBounds());
 }
 
+const sf::RectangleShape& GameText::getBoundBox() const
+{
+    return m_bounds_box;
+}
+
 sf::String GameText::getString(){
     return m_string;
 }
 
 int GameText::getRow(){
     return m_row;
+}
+
+sf::Sprite& GameText::getSprite(){
+    return m_sprite;
+}
+
+sf::Texture& GameText::getTexture(){
+    return m_texture;
 }
 
 void GameText::update(const sf::String character)
@@ -60,6 +73,10 @@ bool GameText::isCompleted(){
     return m_string.getSize() == coloredIndex ? true : false;
 }
 
+void GameText::moveGameText(float offsetX, float offsetY){
+    move(offsetX, offsetY);
+
+}
 
 GameText::GameText(sf::String value, const sf::Font& f, unsigned int characterSize):
     m_string             (value),
@@ -67,10 +84,18 @@ GameText::GameText(sf::String value, const sf::Font& f, unsigned int characterSi
     m_characterSize      (characterSize),
     m_letterSpacingFactor(1.f),
     m_lineSpacingFactor  (1.f),
-    m_fillColor          (255, 255, 255),
+    m_fillColor          (sf::Color::White),
     m_vertices           (sf::Triangles),
     m_bounds             (),
-    m_geometryNeedUpdate (true){}
+    m_bounds_box         ({getGlobalBounds().width,getGlobalBounds().height}),
+    m_geometryNeedUpdate (true)
+    {
+        auto bounds = getGlobalBounds();
+        setOrigin({bounds.width/2,bounds.height/2});
+        m_bounds_box.setOrigin({m_bounds_box.getSize().x/2,m_bounds_box.getSize().y/2});
+        m_bounds_box.setFillColor(sf::Color{0,0,0,((255/100)*55)});
+        m_bounds_box.setPosition(getOrigin());
+    }
 
 GameText::GameText(sf::String value, const sf::Font& f, unsigned int characterSize, int row):
     m_string             (value),
@@ -78,17 +103,59 @@ GameText::GameText(sf::String value, const sf::Font& f, unsigned int characterSi
     m_characterSize      (characterSize),
     m_letterSpacingFactor(1.f),
     m_lineSpacingFactor  (1.f),
-    m_fillColor          (255, 255, 255),
+    m_fillColor          (sf::Color::White),
     m_vertices           (sf::Triangles),
     m_bounds             (),
+    m_bounds_box         ({getGlobalBounds().width,getGlobalBounds().height}),
     m_geometryNeedUpdate (true),
-    m_row                (row){}
+    m_row                (row)
+    {
+        auto bounds = getGlobalBounds();
+        setOrigin({bounds.width/2,bounds.height/2});
+        m_bounds_box.setOrigin({m_bounds_box.getSize().x/2,m_bounds_box.getSize().y/2});
+        m_bounds_box.setFillColor(sf::Color{0,0,0,((255/100)*55)});
+        m_bounds_box.setPosition(getOrigin());
+    }
+
+GameText::GameText(sf::String value, const sf::Font& f, unsigned int characterSize, std::string texture_path, int row):
+    m_string             (value),
+    m_font               (&f),
+    m_characterSize      (characterSize),
+    m_letterSpacingFactor(1.f),
+    m_lineSpacingFactor  (1.f),
+    m_fillColor          (sf::Color::White),
+    m_vertices           (sf::Triangles),
+    m_bounds             (),
+    m_bounds_box         ({getGlobalBounds().width+20,getGlobalBounds().height+20}),
+    m_geometryNeedUpdate (true),
+    m_row                (row)
+    {
+        auto bounds = getGlobalBounds();
+        setOrigin({bounds.width/2,bounds.height/2});
+        m_bounds_box.setOrigin({m_bounds_box.getSize().x/2,m_bounds_box.getSize().y/2});
+        m_bounds_box.setFillColor(sf::Color{0,0,0,((255/100)*55)});
+        m_bounds_box.setPosition(getOrigin());
+        if (!m_texture.loadFromFile(texture_path)) {
+            std::cerr << "Failed to load texture from image\n";
+        } else {
+            m_sprite.setTexture(m_texture);
+            m_sprite.setScale({0.5f,0.5f});
+            //m_sprite.setOrigin({m_texture.getSize().x/2,m_texture.getSize().y/2});
+        }
+    }
 
 void GameText::draw(sf::RenderTarget& target, sf::RenderStates states) const{
     ensureGeometryUpdate();
     states.transform *= getTransform();
     states.texture = &m_font->getTexture(m_characterSize);
 
+    sf::Sprite sp{m_texture};
+    sp.setScale({0.5f,0.5f});
+    sp.setOrigin({m_texture.getSize().x/2,m_texture.getSize().y/2});
+    sp.setPosition(getOrigin());
+
+    target.draw(sp, states);
+    target.draw(m_bounds_box, states);
     target.draw(m_vertices, states);
 }
 
@@ -165,7 +232,7 @@ void GameText::ensureGeometryUpdate() const
         const sf::Glyph& glyph = m_font->getGlyph(curChar, m_characterSize, false);
 
         // Add the glyph to the vertices
-        sf::Color textColor{coloredIndex>i ? sf::Color::Red : sf::Color::White};
+        sf::Color textColor{coloredIndex>i ? sf::Color::Red : m_fillColor};
         addGlyphQuad(m_vertices, sf::Vector2f(x, y), textColor, glyph, 0);
 
         // Update the current bounds

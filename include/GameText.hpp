@@ -19,6 +19,9 @@ private:
     float                       m_letterSpacingFactor{1.f};
     sf::Color                   m_fillColor;
     mutable sf::FloatRect       m_bounds;
+    sf::Texture                 m_texture;
+    sf::Sprite                  m_sprite;
+    sf::RectangleShape          m_bounds_box;
 
     // used to determine how many letters should be highlighted
     size_t                      coloredIndex{0};
@@ -33,6 +36,8 @@ public:
 
     GameText(sf::String, const sf::Font&, unsigned int characterSize, int row);
 
+    GameText(sf::String, const sf::Font&, unsigned int characterSize, std::string, int row);
+
     GameText() = default;
 
     virtual void update(const sf::String);
@@ -43,9 +48,18 @@ public:
 
     int getRow();
 
+    sf::Sprite& getSprite();
+
+    sf::Texture& getTexture();
+
     sf::FloatRect getLocalBounds() const;
 
     sf::FloatRect getGlobalBounds() const;
+
+    const sf::RectangleShape& getBoundBox() const;
+
+    // extension of the sf::Transformable move function
+    void moveGameText(float offsetX, float offsetY);
 
 };
 

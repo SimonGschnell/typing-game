@@ -3,6 +3,9 @@
 
 #include <utility>
 
+
+#include <SFML/Graphics.hpp>
+
 // curl
 #include <curlpp/cURLpp.hpp>
 #include <curlpp/Easy.hpp>
@@ -20,7 +23,7 @@ namespace PokeApi{
         // range from 0 - 1025
         return rand() % MAX_POKEMON_ID;
     }
-    std::pair<std::string,int> getPokemon(int id);
+    std::pair<std::string,std::string> getPokemon(int id);
 }
 
 #endif

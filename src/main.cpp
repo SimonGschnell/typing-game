@@ -37,10 +37,10 @@ float generateRow(int nrRow, const sf::Window &window){
     return (offset*nrRow)-DEFAULT_CHARACTER_SIZE;
 }
 
-void prepareSubscriberForPublisher(Publisher &pub, std::string pokemonName, sf::Font &font, const sf::Window &window, int row){
+void prepareSubscriberForPublisher(Publisher &pub, std::pair<std::string,std::string> pokemon, sf::Font &font, const sf::Window &window, int row){
     // create GameText / set its position and subscribe it to the Observer
     try{
-        std::shared_ptr<GameText> gt {std::make_shared<GameText>(GameText{pokemonName, font, DEFAULT_CHARACTER_SIZE,row})};
+        std::shared_ptr<GameText> gt {std::make_shared<GameText>(GameText{pokemon.first, font, DEFAULT_CHARACTER_SIZE,pokemon.second,row})};
         gt->setPosition({50,generateRow(gt->getRow(),window)});
         pub.subscribe(gt->getString(),gt);
     }catch(std::exception &e){
@@ -48,6 +48,7 @@ void prepareSubscriberForPublisher(Publisher &pub, std::string pokemonName, sf::
     }
 }
 
+//todo: refactor
 int checkForEmptyRow(Publisher &pub){
     // all rows empty
     if(pub.getSubscribers().size() == 0){
@@ -100,7 +101,7 @@ int main()
 
     // player
     sf::Texture avatarTexture;
-    loadRecourse(avatarTexture,"./textures/guy.png");
+    loadRecourse(avatarTexture,"./textures/litleo.png");
 
     sf::Sprite avatarSprite;
     avatarSprite.setTexture(avatarTexture);
@@ -116,8 +117,7 @@ int main()
     text.setColor(sf::Color::Red);
 
     auto window = sf::RenderWindow{ { 300, 300 }, "Typing Game", sf::Style::Fullscreen | sf::Style::Resize | sf::Style::Close};
-
-    window.setFramerateLimit(144);
+    window.setVerticalSyncEnabled( true );
 
     // enlarge the sprite to fit the window size
     sf::Vector2u windowSize = window.getSize();
@@ -132,11 +132,17 @@ int main()
     Publisher pub;
 
     std::future_status f_status;
-    std::future<std::pair<std::string,int>> future = std::async(PokeApi::getPokemon,PokeApi::generatePokemonID());
+    std::future<std::pair<std::string,std::string>> future = std::async(PokeApi::getPokemon,PokeApi::generatePokemonID());
+
+    sf::Time elapsed;
+
+    sf::Clock dtClock;
+    sf::Time time;
+    float deltaTime=0;
 
     while (window.isOpen())
     {
-        sf::Time elapsed = clock.getElapsedTime();
+        elapsed = clock.getElapsedTime();
 
         for (auto event = sf::Event{}; window.pollEvent(event);)
         {
@@ -156,6 +162,10 @@ int main()
             }
 
         }
+
+        // Restart the clock and get the delta time
+        time = dtClock.restart();
+        deltaTime = time.asSeconds();
 
         window.clear();
 
@@ -177,7 +187,7 @@ int main()
         }
 
         avatarSprite.rotate(rotation);
-        window.draw(avatarSprite); */
+        */
 
         if(elapsed.asSeconds() >= 2.f && future.valid()){
 
@@ -190,7 +200,7 @@ int main()
                 case std::future_status::ready:
                     if(int row = checkForEmptyRow(pub); row){
                         std::cout << row << " this is the row"<< std::endl;
-                        prepareSubscriberForPublisher(pub, future.get().first, font, window, row);
+                        prepareSubscriberForPublisher(pub, future.get(), font, window, row);
                         // fetch another pokemon
                         future = std::async(PokeApi::getPokemon,PokeApi::generatePokemonID());
                     }
@@ -209,22 +219,11 @@ int main()
             if(t->isCompleted()){
                 pub.unsubscribe(t->getString().toAnsiString());
             }else{
+
+                t->move({40*deltaTime,0.f});
+
+
                 window.draw(*t);
-                t->move({0.5f,0.f});
-
-                // draws outline
-                auto bounds = t->getGlobalBounds();
-                // Create a RectangleShape with the same position and size
-                sf::RectangleShape rectangle(sf::Vector2f(bounds.width, bounds.height));
-                rectangle.setPosition(bounds.left, bounds.top);
-
-                // Set the outline color and thickness
-                rectangle.setFillColor(sf::Color::Transparent);
-                rectangle.setOutlineColor(sf::Color::Red);
-                rectangle.setOutlineThickness(1.f);
-
-                window.draw(rectangle);
-                rectangle.move({0.5f,0.f});
             }
         }
 

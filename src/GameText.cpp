@@ -87,14 +87,13 @@ GameText::GameText(sf::String value, const sf::Font& f, unsigned int characterSi
     m_fillColor          (sf::Color::White),
     m_vertices           (sf::Triangles),
     m_bounds             (),
-    m_bounds_box         ({getGlobalBounds().width,getGlobalBounds().height}),
+    m_bounds_box         ({getGlobalBounds().width+10,getGlobalBounds().height+10}),
     m_geometryNeedUpdate (true)
     {
         auto bounds = getGlobalBounds();
         setOrigin({bounds.width/2,bounds.height/2});
-        m_bounds_box.setOrigin({m_bounds_box.getSize().x/2,m_bounds_box.getSize().y/2});
         m_bounds_box.setFillColor(sf::Color{0,0,0,((255/100)*55)});
-        m_bounds_box.setPosition(getOrigin());
+        m_bounds_box.setPosition({getPosition().x- 5,getPosition().y +5});
     }
 
 GameText::GameText(sf::String value, const sf::Font& f, unsigned int characterSize, int row):
@@ -106,15 +105,14 @@ GameText::GameText(sf::String value, const sf::Font& f, unsigned int characterSi
     m_fillColor          (sf::Color::White),
     m_vertices           (sf::Triangles),
     m_bounds             (),
-    m_bounds_box         ({getGlobalBounds().width,getGlobalBounds().height}),
+    m_bounds_box         ({getGlobalBounds().width+10,getGlobalBounds().height+10}),
     m_geometryNeedUpdate (true),
     m_row                (row)
     {
         auto bounds = getGlobalBounds();
         setOrigin({bounds.width/2,bounds.height/2});
-        m_bounds_box.setOrigin({m_bounds_box.getSize().x/2,m_bounds_box.getSize().y/2});
         m_bounds_box.setFillColor(sf::Color{0,0,0,((255/100)*55)});
-        m_bounds_box.setPosition(getOrigin());
+        m_bounds_box.setPosition({getPosition().x- 5,getPosition().y +5});
     }
 
 GameText::GameText(sf::String value, const sf::Font& f, unsigned int characterSize, std::string texture_path, int row):
@@ -126,21 +124,20 @@ GameText::GameText(sf::String value, const sf::Font& f, unsigned int characterSi
     m_fillColor          (sf::Color::White),
     m_vertices           (sf::Triangles),
     m_bounds             (),
-    m_bounds_box         ({getGlobalBounds().width+20,getGlobalBounds().height+20}),
+    m_bounds_box         ({getGlobalBounds().width+10,getGlobalBounds().height+10}),
     m_geometryNeedUpdate (true),
     m_row                (row)
     {
         auto bounds = getGlobalBounds();
         setOrigin({bounds.width/2,bounds.height/2});
-        m_bounds_box.setOrigin({m_bounds_box.getSize().x/2,m_bounds_box.getSize().y/2});
         m_bounds_box.setFillColor(sf::Color{0,0,0,((255/100)*55)});
-        m_bounds_box.setPosition(getOrigin());
+        m_bounds_box.setPosition({getPosition().x- 5,getPosition().y +5});
         if (!m_texture.loadFromFile(texture_path)) {
             std::cerr << "Failed to load texture from image\n";
         } else {
             m_sprite.setTexture(m_texture);
             m_sprite.setScale({0.5f,0.5f});
-            //m_sprite.setOrigin({m_texture.getSize().x/2,m_texture.getSize().y/2});
+
         }
     }
 

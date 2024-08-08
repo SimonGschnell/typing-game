@@ -18,6 +18,12 @@
 const int DEFAULT_CHARACTER_SIZE = 30;
 const int MAX_NR_ROWS = 5;
 
+enum class GameState{
+    Normal,
+    Paused,
+    GameOver,
+};
+
 
 void loadRecourse(sf::Texture &t, std::string file) {
     if(!t.loadFromFile(file)){
@@ -91,13 +97,6 @@ int main()
     // fetching pokemon names
     //std::string test{PokeApi::getPokemon(PokeApi::generatePokemonID()).first};
 
-    //background
-    sf::Texture oldPaper;
-    loadRecourse(oldPaper,"./textures/oldPaper.png");
-    oldPaper.setSmooth(true);
-
-    sf::Sprite sprite;
-    sprite.setTexture(oldPaper);
 
     // player
     sf::Texture avatarTexture;
@@ -119,10 +118,6 @@ int main()
     auto window = sf::RenderWindow{ { 300, 300 }, "Typing Game", sf::Style::Fullscreen | sf::Style::Resize | sf::Style::Close};
     window.setVerticalSyncEnabled( true );
 
-    // enlarge the sprite to fit the window size
-    sf::Vector2u windowSize = window.getSize();
-    sf::Vector2u textureSize = oldPaper.getSize();
-    sprite.setScale((float) windowSize.x / textureSize.x, (float) windowSize.y / textureSize.y);
 
     float rotation{1};
     int rounds{0};
@@ -139,6 +134,36 @@ int main()
     sf::Clock dtClock;
     sf::Time time;
     float deltaTime=0;
+
+    GameState game_state{GameState::Normal};
+
+    // PAUSE - Graphics
+    sf::RectangleShape pause_bar{{window.getSize().x,window.getSize().y/2}};
+    pause_bar.setOrigin({pause_bar.getSize().x/2,pause_bar.getSize().y/2});
+    pause_bar.setPosition({window.getSize().x/2,window.getSize().y/2});
+    pause_bar.setFillColor(sf::Color{0,0,0,125});
+
+    sf::Text pause_text{"Game Paused",font,100};
+    pause_text.setOrigin({pause_text.getGlobalBounds().width/2,pause_text.getGlobalBounds().height/2});
+    pause_text.setPosition({window.getSize().x/2,window.getSize().y/2});
+    pause_text.setFillColor(sf::Color::White);
+
+    //GAME OVER - Graphics
+    sf::Text game_over_continue{"continue",font,70};
+    game_over_continue.setPosition({pause_text.getGlobalBounds().left - 50,pause_text.getGlobalBounds().top + 100});
+    sf::Text game_over_quit{"quit",font,70};
+    game_over_quit.setPosition({pause_text.getGlobalBounds().left + 380,pause_text.getGlobalBounds().top + 100});
+
+
+    //background
+    sf::Texture bg_texture;
+    loadRecourse(bg_texture,"./textures/grass.jpg");
+
+    sf::Sprite bg_sprite;
+    bg_sprite.setTexture(bg_texture);
+    sf::Vector2u windowSize = window.getSize();
+    sf::Vector2u textureSize = bg_texture.getSize();
+    bg_sprite.setScale((float) windowSize.x / textureSize.x, (float) windowSize.y / textureSize.y);
 
     while (window.isOpen())
     {
@@ -159,6 +184,22 @@ int main()
                         t->setPosition(t->getPosition().x,generateRow(t->getRow(),window));
                     }
                     break;
+                case sf::Event::LostFocus:
+                    game_state = GameState::Paused;
+                    break;
+                case sf::Event::GainedFocus:
+                    if(game_state != GameState::GameOver){
+                        game_state = GameState::Normal;
+                    }
+                    break;
+                case sf::Event::MouseButtonPressed:
+                    if(game_over_continue.getGlobalBounds().contains({event.mouseButton.x,event.mouseButton.y})){
+                        game_state = GameState::Normal;
+                    }
+                    if(game_over_quit.getGlobalBounds().contains({event.mouseButton.x,event.mouseButton.y})){
+                        window.close();
+                    }
+                    break;
             }
 
         }
@@ -168,6 +209,8 @@ int main()
         deltaTime = time.asSeconds();
 
         window.clear();
+        window.draw(bg_sprite);
+
 
         //drawing happens here
         /* window.draw(sprite);
@@ -189,7 +232,7 @@ int main()
         avatarSprite.rotate(rotation);
         */
 
-        if(elapsed.asSeconds() >= 2.f && future.valid()){
+        if(game_state == GameState::Normal && elapsed.asSeconds() >= 2.f && future.valid()){
 
             switch (f_status = future.wait_for(std::chrono::seconds(0)); f_status)
             {
@@ -220,13 +263,36 @@ int main()
                 pub.unsubscribe(t->getString().toAnsiString());
             }else{
 
-                t->move({40*deltaTime,0.f});
+                switch (game_state)
+                {
+                    case GameState::Normal:
+                        t->move({400*deltaTime,0.f});
+                        break;
+                    case GameState::Paused:
+                        window.draw(pause_bar);
+                        window.draw(pause_text);
+                        break;
+                }
 
+                if(window.getSize().x <= t->getPosition().x){
+                    game_state = GameState::GameOver;
+                    break;
+                }
 
                 window.draw(*t);
             }
         }
 
+        if(game_state == GameState::GameOver){
+            if(pub.getSubscribers().size() > 0){
+                pub.unsubscribeAll();
+            }
+            window.draw(pause_bar);
+            pause_text.setString("Game Over");
+            window.draw(pause_text);
+            window.draw(game_over_continue);
+            window.draw(game_over_quit);
+        }
 
         window.display();
     }

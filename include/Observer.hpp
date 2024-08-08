@@ -27,6 +27,11 @@ public:
         m_subscribers.erase(key);
     }
 
+    void unsubscribeAll(){
+        // remove all subscribers from the hashmap
+        m_subscribers.clear();
+    }
+
     void notify_subscribers(const sf::String &value){
         // call the update function of every subscriber in the hashmap
         for(std::pair<const std::string, std::shared_ptr<Subscriber>> &s : m_subscribers){

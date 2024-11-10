@@ -18,12 +18,12 @@
 const int DEFAULT_CHARACTER_SIZE = 30;
 const int MAX_NR_ROWS = 5;
 
+// Game states of the typing game
 enum class GameState{
     Normal,
     Paused,
     GameOver,
 };
-
 
 void loadRecourse(sf::Texture &t, std::string file) {
     if(!t.loadFromFile(file)){
@@ -43,8 +43,8 @@ float generateRow(int nrRow, const sf::Window &window){
     return (offset*nrRow)-DEFAULT_CHARACTER_SIZE;
 }
 
+// helper function to create GameText objects and add them to the Observer
 void prepareSubscriberForPublisher(Publisher &pub, std::pair<std::string,std::string> pokemon, sf::Font &font, const sf::Window &window, int row){
-    // create GameText / set its position and subscribe it to the Observer
     try{
         std::shared_ptr<GameText> gt {std::make_shared<GameText>(GameText{pokemon.first, font, DEFAULT_CHARACTER_SIZE,pokemon.second,row})};
         gt->setPosition({50,generateRow(gt->getRow(),window)});
@@ -54,6 +54,7 @@ void prepareSubscriberForPublisher(Publisher &pub, std::pair<std::string,std::st
     }
 }
 
+// function responsible for positioning new fetched pokemons on the screen relative to already drawn pokemons on the screen
 //todo: refactor
 int checkForEmptyRow(Publisher &pub){
     // all rows empty
@@ -94,34 +95,12 @@ int checkForEmptyRow(Publisher &pub){
 
 int main()
 {
-    // fetching pokemon names
-    //std::string test{PokeApi::getPokemon(PokeApi::generatePokemonID()).first};
-
-
-    // player
-    sf::Texture avatarTexture;
-    loadRecourse(avatarTexture,"./textures/litleo.png");
-
-    sf::Sprite avatarSprite;
-    avatarSprite.setTexture(avatarTexture);
-    sf::Vector2f originalAvatarScale{avatarSprite.getScale()};
-    avatarSprite.setOrigin(avatarTexture.getSize().x/2,avatarTexture.getSize().y/2);
-
     // font
     sf::Font font{};
     loadRecourse(font,"./fonts/roboto.tff");
 
-    // text
-    sf::Text text{"hello world", font, DEFAULT_CHARACTER_SIZE};
-    text.setColor(sf::Color::Red);
-
-    auto window = sf::RenderWindow{ { 300, 300 }, "Typing Game", sf::Style::Fullscreen | sf::Style::Resize | sf::Style::Close};
+    auto window = sf::RenderWindow{ { 300, 300 }, "Typing Game", sf::Style::Resize | sf::Style::Close};
     window.setVerticalSyncEnabled( true );
-
-
-    float rotation{1};
-    int rounds{0};
-    int index{0};
 
     sf::Clock clock;
     Publisher pub;
@@ -130,7 +109,6 @@ int main()
     std::future<std::pair<std::string,std::string>> future = std::async(PokeApi::getPokemon,PokeApi::generatePokemonID());
 
     sf::Time elapsed;
-
     sf::Clock dtClock;
     sf::Time time;
     float deltaTime=0;
@@ -149,16 +127,18 @@ int main()
     pause_text.setFillColor(sf::Color::White);
 
     //GAME OVER - Graphics
+    sf::Text game_over_text{"Game Over",font,100};
+    game_over_text.setOrigin({game_over_text.getGlobalBounds().width/2,game_over_text.getGlobalBounds().height/2});
+    game_over_text.setPosition({window.getSize().x/2,(window.getSize().y/2)-100});
+    game_over_text.setFillColor(sf::Color::White);
     sf::Text game_over_continue{"continue",font,70};
     game_over_continue.setPosition({pause_text.getGlobalBounds().left - 50,pause_text.getGlobalBounds().top + 100});
     sf::Text game_over_quit{"quit",font,70};
-    game_over_quit.setPosition({pause_text.getGlobalBounds().left + 380,pause_text.getGlobalBounds().top + 100});
-
+    game_over_quit.setPosition({pause_text.getGlobalBounds().left + 480,pause_text.getGlobalBounds().top + 100});
 
     //background
     sf::Texture bg_texture;
     loadRecourse(bg_texture,"./textures/grass.jpg");
-
     sf::Sprite bg_sprite;
     bg_sprite.setTexture(bg_texture);
     sf::Vector2u windowSize = window.getSize();
@@ -171,6 +151,7 @@ int main()
 
         for (auto event = sf::Event{}; window.pollEvent(event);)
         {
+            // Events logic
             switch(event.type){
                 case sf::Event::Closed:
                     window.close(); break;
@@ -211,27 +192,7 @@ int main()
         window.clear();
         window.draw(bg_sprite);
 
-
-        //drawing happens here
-        /* window.draw(sprite);
-        avatarSprite.move(sf::Vector2f(1.f,1.f));
-
-        // do one 360 spin
-
-        if(avatarSprite.getRotation() == 0.f){
-            if(rounds > 0){
-                rotation = 0.f;
-            }
-            rounds++;
-        }
-
-        if(avatarSprite.getScale().x < originalAvatarScale.x*1.5 && avatarSprite.getScale().y < originalAvatarScale.y*1.5 ){
-            avatarSprite.scale(1.001f,1.001f);
-        }
-
-        avatarSprite.rotate(rotation);
-        */
-
+        // spawns a new pokemon every 2 seconds
         if(game_state == GameState::Normal && elapsed.asSeconds() >= 2.f && future.valid()){
 
             switch (f_status = future.wait_for(std::chrono::seconds(0)); f_status)
@@ -255,6 +216,7 @@ int main()
             clock.restart();
         }
 
+        // drawes / erases or moves pokemons on the screen
         for(auto pair : pub.getSubscribers()){
             std::shared_ptr<GameText> t {std::dynamic_pointer_cast<GameText>(pair.second)};
             if(!t) throw std::bad_cast();
@@ -266,7 +228,7 @@ int main()
                 switch (game_state)
                 {
                     case GameState::Normal:
-                        t->move({400*deltaTime,0.f});
+                        t->move({100*deltaTime,0.f});
                         break;
                     case GameState::Paused:
                         window.draw(pause_bar);
@@ -283,13 +245,13 @@ int main()
             }
         }
 
+        // displays game over screen
         if(game_state == GameState::GameOver){
             if(pub.getSubscribers().size() > 0){
                 pub.unsubscribeAll();
             }
             window.draw(pause_bar);
-            pause_text.setString("Game Over");
-            window.draw(pause_text);
+            window.draw(game_over_text);
             window.draw(game_over_continue);
             window.draw(game_over_quit);
         }
